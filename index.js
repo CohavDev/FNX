@@ -117,29 +117,18 @@ const logInUtilities = {
   },
   session_token: null,
 };
+const utilitiesBuffer = [];
 utilitiesWS.on("open", () => {
   console.log("websocket openned");
   utilitiesWS.send(JSON.stringify(logInUtilities));
 });
 utilitiesWS.on("message", function incoming(data) {
-  const jsonData = JSON.parse(data.toString());
-  console.log(jsonData);
+  const jsonData = utilitiesBuffer.push(data.toString());
+  console.log("pushed message to buffer");
+  // first server message is recieved in 3 different messages one after the other
+  if (utilitiesBuffer.length == 3) {
+    const sessionToken = JSON.parse(utilitiesBuffer.join("")).response
+      .properties.session_token;
+    console.log(sessionToken);
+  }
 });
-// await fetch("wss://websocket.traffilog.com:8182/0309EF54-2931-4F5F-A8DE-906264884FCF/TOKEN/json", {
-//     "credentials": "include",
-//     "headers": {
-//         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
-//         "Accept": "*/*",
-//         "Accept-Language": "he,en-US;q=0.7,en;q=0.3",
-//         "Sec-WebSocket-Version": "13",
-//         "Sec-WebSocket-Extensions": "permessage-deflate",
-//         "Sec-WebSocket-Key": "tthFF4tYaAvntZjfCnItyQ==",
-//         "Sec-Fetch-Dest": "empty",
-//         "Sec-Fetch-Mode": "websocket",
-//         "Sec-Fetch-Site": "same-site",
-//         "Pragma": "no-cache",
-//         "Cache-Control": "no-cache"
-//     },
-//     "method": "GET",
-//     "mode": "cors"
-// });
