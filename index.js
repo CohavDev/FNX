@@ -1,6 +1,9 @@
 const axios = require("axios");
 const ws = require("ws");
-let session_token_GLOBAL = "dcd15a09424d46a783e9ef5b5a2357ae4542935504";
+let fieldwork_session_token_GLOBAL =
+  "dcd15a09424d46a783e9ef5b5a2357ae4542935504";
+let utilities_session_token_GLOBAL =
+  "36222B226E01455CB30DA3D86F96AA004543049242";
 const headers = {
   accept: "*/*",
   "accept-language": "he,en;q=0.9,en-GB;q=0.8,en-US;q=0.7",
@@ -16,8 +19,8 @@ const headers = {
   Referer: "https://fieldwork.traffilog.com/",
   "Referrer-Policy": "strict-origin-when-cross-origin",
 };
-const logIn = async () =>
-  await fetch(
+const logInFieldWork = async () => {
+  const result = await fetch(
     "https://api-il.traffilog.com/appengine_3/D292D435-BCB8-4E6F-B3B2-2F9868337DAF/1/json",
     {
       headers: {
@@ -28,10 +31,12 @@ const logIn = async () =>
     }
   ).then((res) =>
     res.json().then((data) => {
-      session_token_GLOBAL = data.response.properties.session_token;
-      console.log(session_token_GLOBAL);
+      fieldwork_session_token_GLOBAL = data.response.properties.session_token;
+      console.log(fieldwork_session_token_GLOBAL);
     })
   );
+  return fieldwork_session_token_GLOBAL;
+};
 
 const getInnerId = async (license_number) => {
   await fetch(
@@ -45,7 +50,7 @@ const getInnerId = async (license_number) => {
         '{"action": {"name": "fieldwork_phoenix_get_vehicle_specifics","parameters": [{"license_number": "' +
         license_number +
         '"}],"session_token": "' +
-        session_token_GLOBAL +
+        fieldwork_session_token_GLOBAL +
         '"}}',
       method: "POST",
     }
@@ -71,7 +76,7 @@ const getSubscriberNumber = async (license_number) => {
         '{"action": {"name": "fieldwork_phoenix_get_vehicle_manui_specifics","parameters": [{"license_number": "' +
         license_number +
         '"}],"session_token": "' +
-        session_token_GLOBAL +
+        fieldwork_session_token_GLOBAL +
         '"}}',
       method: "POST",
     }
@@ -117,18 +122,44 @@ const logInUtilities = {
   },
   session_token: null,
 };
+const connectUnit = (subscriber, license, innerID) => {
+  const msgData = {
+    action: {
+      name: "fnx_connect_unit_to_vehicle",
+      parameters: {
+        subscribercode: subscriber,
+        license_nmbr: license,
+        inner_id: innerID,
+        _action_name: "fnx_connect_unit_to_vehicle",
+      },
+      mtkn: 4,
+      session_token: utilities_session_token_GLOBAL,
+    },
+    session_token: utilities_session_token_GLOBAL,
+  };
+  console.log("connecting unit to vehicle");
+  utilitiesWS.send(JSON.stringify(msgData));
+};
 const utilitiesBuffer = [];
 utilitiesWS.on("open", () => {
   console.log("websocket openned");
   utilitiesWS.send(JSON.stringify(logInUtilities));
 });
+let islogged = false;
 utilitiesWS.on("message", function incoming(data) {
   const jsonData = utilitiesBuffer.push(data.toString());
   console.log("pushed message to buffer");
   // first server message is recieved in 3 different messages one after the other
-  if (utilitiesBuffer.length == 3) {
-    const sessionToken = JSON.parse(utilitiesBuffer.join("")).response
+  if (utilitiesBuffer.length % 3 == 0 && utilitiesBuffer.length > 0) {
+    const sessionToken = JSON.parse(utilitiesBuffer.slice(-3).join("")).response
       .properties.session_token;
     console.log(sessionToken);
+    console.log(JSON.parse(utilitiesBuffer.slice(-3).join("")));
+    utilities_session_token_GLOBAL = sessionToken;
+    if (!islogged) {
+      connectUnit(240013868377, 6283873, 863251071374164);
+      islogged = true;
+    }
   }
 });
+module.exports = { logInFieldWork, logInUtilities };
