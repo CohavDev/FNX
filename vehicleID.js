@@ -88,57 +88,22 @@ async function getVehicleIDAxios(subscribercode) {
         }
       )
       .then((res) => {
-        console.log(res.data);
-        console.log(res.data.length);
+        if (res.status !== 200 || res.data.includes("error")) {
+          console.log("getVehicleIDAxios failed");
+          return undefined;
+        }
         const dict = buildLicenseDict(res.data);
         console.log("getVehicleIDAxios success");
         return dict;
       });
+    return result;
   } catch (error) {
     console.log("getVehicleIDAxios failed");
-  }
-}
-async function getSubscriberCars(subscribercode) {
-  try {
-    const result = await fetch(
-      "https://html5.traffilog.com/AppEngine_2_1/default.aspx",
-      {
-        headers: {
-          accept: "*/*",
-          "accept-language": "he-IL,he;q=0.9",
-          "content-type": "application/x-www-form-urlencoded",
-          priority: "u=1, i",
-          "sec-ch-ua":
-            '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
-          "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"Windows"',
-          "sec-fetch-dest": "empty",
-          "sec-fetch-mode": "cors",
-          "sec-fetch-site": "same-origin",
-
-          cookie: global_cookies + global_tfl_session,
-
-          Referer: "https://html5.traffilog.com/appv2/index.htm",
-          "Referrer-Policy": "strict-origin-when-cross-origin",
-        },
-        body:
-          "SUBSCRIBER_CODE=" +
-          subscribercode +
-          "&action=GET_POLICY_VEHICLES&VERSION_ID=2",
-        method: "POST",
-      }
-    ).then((data) =>
-      data.text().then((data) => {
-        console.log("getSubscriberCars success");
-        return buildLicenseDict(data);
-      })
-    );
-  } catch (error) {
-    console.log("getSubscriberCars failed");
     return undefined;
   }
 }
-async function fetchPolicies() {
+
+async function fetchPoliciesAxios() {
   try {
     const result = axios
       .post(
@@ -166,7 +131,7 @@ async function fetchPolicies() {
         }
       )
       .then((res) => {
-        if (res.data.length < 1000) {
+        if (res.status !== 200 || res.data.length < 1000) {
           console.log("policy fetch failed. server logged-out");
           console.log(res.data);
           return false;
@@ -174,8 +139,8 @@ async function fetchPolicies() {
         console.log(res.data.length);
         processPolicies(res.data);
         return true;
-        // return buildLicenseDict(res.data);
       });
+    return result;
   } catch (error) {
     console.log("policy fetch failed");
     return false;
@@ -204,28 +169,72 @@ async function getSessionID() {
         },
       })
       .then((res) => {
-        global_cookies = res.headers["set-cookie"].join(";");
+        const cookies = res.headers["set-cookie"].join(";");
         console.log("getSessionID OK");
-        return true;
+        return cookies;
       });
     return response;
   } catch (error) {
     console.log("getSessionID failed");
-    return false;
+    return undefined;
   }
 }
-// getVehicleIDAxios(210010544439);
-// fetchPolicies();
-// processPolicyOne("");
-async function main() {
-  const sessionID_success = await getSessionID();
-  if (sessionID_success) {
-    fetchPolicies();
-    // getVehicleIDAxios(240013648150);
+async function retry(callBackFunc) {
+  const sessionID = await getSessionID();
+  if (sessionID) {
+    writeSessionID(sessionID);
+    const result = await callBackFunc();
+    return result;
+  }
+  return false;
+}
+function writeSessionID(sessionID) {
+  try {
+    fs.writeFile("./config.json", { session_id: sessionID }, (err) => {
+      if (err) {
+        console.log("session id write to file -- failed");
+      } else {
+        console.log("Wrote session id into file -- OK");
+      }
+    });
+  } catch (error) {
+    console.log("Wrote session id into file -- OK");
   }
 }
-main();
-module.exports = { getSubscriberCars };
+function readSessionID() {
+  if (global_cookies !== undefined) {
+    return;
+  }
+  try {
+    const data = fs.readFileSync("./config.json");
+    global_cookies = JSON.parse(data).session_id;
+    return;
+  } catch (error) {
+    console.log("failure in read session ID");
+  }
+}
+
+//       ####      USER FUNCTIONS      ####
+
+async function getVehicleID(subscribercode) {
+  readSessionID();
+  const result = await getVehicleIDAxios(subscribercode);
+  if (result == undefined) {
+    console.log("trying again due to session id");
+    retry((subscribercode) => getVehicleIDAxios(subscribercode));
+  }
+}
+async function fetchPolicies() {
+  readSessionID();
+  const result = await fetchPoliciesAxios();
+  if (result == undefined) {
+    console.log("trying again due to session id");
+    retry(() => fetchPoliciesAxios());
+  }
+}
+getVehicleID(240013934653);
+console.log(global_cookies);
+module.exports = { getVehicleID, fetchPolicies };
 
 // cookie:
 // 'ASP.NET_SessionId=ybvh5w2uysashuv1wxlnfmpy; TFL_SESSION=75D8EFA9-5133-4F53-AD3F-D349E8A66578; EULA_APPROVED=1; APPLICATION_ROOT_NODE={"node":"-2"}; AWSALB=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP; AWSALBCORS=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP',
