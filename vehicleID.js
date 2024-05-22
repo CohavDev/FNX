@@ -1,6 +1,9 @@
 const axios = require("axios");
 const fs = require("node:fs");
+const { resolve } = require("node:path");
 
+let global_cookies = "";
+let global_tfl_session = "; TFL_SESSION=75D8EFA9-5133-4F53-AD3F-D349E8A66578";
 const buildLicenseDict = (rawDB) => {
   let regexLicense = /LICENSE_NUMBER=([^VEHICLE_ID]*)/g;
   let regexVehicleID = /VEHICLE_ID=([^VEHICLE_TYPE]*)/g;
@@ -44,7 +47,7 @@ function processPolicies(policiesData) {
   let arr = [];
   for (let i = 0; i < resultRegex.length; i++) {
     const temp = processPolicyOne(resultRegex[i]);
-    arr.push(temp);
+    arr.push(JSON.stringify(temp));
   }
 
   fs.writeFile("./policiesRawDB.txt", arr.join(", "), (err) => {
@@ -75,8 +78,8 @@ async function getVehicleIDAxios(subscribercode) {
           "sec-fetch-dest": "empty",
           "sec-fetch-mode": "cors",
           "sec-fetch-site": "same-origin",
-          cookie:
-            'ASP.NET_SessionId=bek3c0wgkzzxnvd3s5ltvcow; TFL_SESSION=AE988BB4-CB14-473C-B80C-513E29FAB9BB; EULA_APPROVED=1; APPLICATION_ROOT_NODE={"node":"-2"}; AWSALB=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP; AWSALBCORS=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP',
+          cookie: global_cookies + global_tfl_session,
+
           Referer: "https://html5.traffilog.com/appv2/index.htm",
           "Referrer-Policy": "strict-origin-when-cross-origin",
         },
@@ -111,8 +114,9 @@ async function getSubscriberCars(subscribercode) {
       "sec-fetch-dest": "empty",
       "sec-fetch-mode": "cors",
       "sec-fetch-site": "same-origin",
-      cookie:
-        'ASP.NET_SessionId=pknh12bntf4g4zwjjhf3q4xl; TFL_SESSION=AE988BB4-CB14-473C-B80C-513E29FAB9BB; EULA_APPROVED=1; APPLICATION_ROOT_NODE={"node":"-2"}; AWSALB=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP; AWSALBCORS=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP',
+
+      cookie: global_cookies + global_tfl_session,
+
       Referer: "https://html5.traffilog.com/appv2/index.htm",
       "Referrer-Policy": "strict-origin-when-cross-origin",
     },
@@ -131,11 +135,53 @@ async function getSubscriberCars(subscribercode) {
   );
 }
 async function fetchPolicies() {
-  axios
-    .post(
-      "https://html5.traffilog.com/AppEngine_2_1/default.aspx",
-      "&action=GET_POLICIES&VERSION_ID=2",
-      {
+  try {
+    const result = axios
+      .post(
+        "https://html5.traffilog.com/AppEngine_2_1/default.aspx",
+        "&action=GET_POLICIES&VERSION_ID=2",
+        {
+          headers: {
+            accept: "*/*",
+            "accept-language": "he-IL,he;q=0.9",
+            "content-type": "application/x-www-form-urlencoded",
+            priority: "u=1, i",
+            "sec-ch-ua":
+              '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+
+            cookie: global_cookies + global_tfl_session,
+
+            Referer: "https://html5.traffilog.com/appv2/index.htm",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+          },
+        }
+      )
+      .then((res) => {
+        if (res.data.length < 1000) {
+          console.log("policy fetch failed. server logged-out");
+          console.log(res.data);
+          return false;
+        }
+        console.log(res.data.length);
+        processPolicies(res.data);
+        return true;
+        // return buildLicenseDict(res.data);
+      });
+  } catch (error) {
+    console.log("policy fetch failed");
+    return false;
+  }
+}
+async function getSessionID() {
+  try {
+    const response = await axios
+      .get("https://html5.traffilog.com/AppEngine_2_1/default.aspx", {
+        withCredentials: true,
         headers: {
           accept: "*/*",
           "accept-language": "he-IL,he;q=0.9",
@@ -148,24 +194,33 @@ async function fetchPolicies() {
           "sec-fetch-dest": "empty",
           "sec-fetch-mode": "cors",
           "sec-fetch-site": "same-origin",
-          cookie:
-            'ASP.NET_SessionId=bek3c0wgkzzxnvd3s5ltvcow; TFL_SESSION=AE988BB4-CB14-473C-B80C-513E29FAB9BB; EULA_APPROVED=1; APPLICATION_ROOT_NODE={"node":"-2"}; AWSALB=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP; AWSALBCORS=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP',
+
           Referer: "https://html5.traffilog.com/appv2/index.htm",
           "Referrer-Policy": "strict-origin-when-cross-origin",
         },
-      }
-    )
-    .then((res) => {
-      if (res.data.length < 1000) {
-        console.log("policy fetch failed. server logged-out");
-        return;
-      }
-      console.log(res.data.length);
-      processPolicies(res.data);
-      // return buildLicenseDict(res.data);
-    });
+      })
+      .then((res) => {
+        global_cookies = res.headers["set-cookie"].join(";");
+        console.log("getSessionID OK");
+        return true;
+      });
+    return response;
+  } catch (error) {
+    console.log("getSessionID failed");
+    return false;
+  }
 }
 // getVehicleIDAxios(210010544439);
-fetchPolicies();
+// fetchPolicies();
 // processPolicyOne("");
+async function main() {
+  const sessionID_success = await getSessionID();
+  if (sessionID_success) {
+    fetchPolicies();
+  }
+}
+main();
 module.exports = { getSubscriberCars };
+
+// cookie:
+// 'ASP.NET_SessionId=ybvh5w2uysashuv1wxlnfmpy; TFL_SESSION=75D8EFA9-5133-4F53-AD3F-D349E8A66578; EULA_APPROVED=1; APPLICATION_ROOT_NODE={"node":"-2"}; AWSALB=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP; AWSALBCORS=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP',
