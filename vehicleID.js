@@ -198,17 +198,22 @@ function writeSessionID(sessionID) {
       }
     });
   } catch (error) {
-    console.log("Wrote session id into file -- OK");
+    console.log("Wrote session id into file -- failed");
   }
 }
-function readSessionID() {
-  if (global_cookies !== undefined) {
+async function readSessionID() {
+  if (global_cookies !== "") {
     return;
   }
   try {
-    const data = fs.readFileSync("./config.json");
-    global_cookies = JSON.parse(data).session_id;
-    return;
+    if (fs.existsSync("./config.json")) {
+      const data = fs.readFileSync("./config.json");
+      global_cookies = JSON.parse(data).session_id;
+      return;
+    } else {
+      const session_id = await getSessionID();
+      writeSessionID(session_id);
+    }
   } catch (error) {
     console.log("failure in read session ID");
   }
