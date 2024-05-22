@@ -88,12 +88,16 @@ async function getVehicleIDAxios(subscribercode) {
         }
       )
       .then((res) => {
-        if (res.status !== 200 || res.data.includes("error")) {
+        if (
+          res.status !== 200 ||
+          res.data.includes("error") ||
+          res.data.includes("LOGOFF")
+        ) {
           console.log("getVehicleIDAxios failed");
           return undefined;
         }
         const dict = buildLicenseDict(res.data);
-        console.log("getVehicleIDAxios success");
+        console.log("getVehicleIDAxios success", res.data);
         return dict;
       });
     return result;
