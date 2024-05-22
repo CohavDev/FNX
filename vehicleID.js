@@ -4,6 +4,7 @@ const { resolve } = require("node:path");
 
 let global_cookies = "";
 let global_tfl_session = "; TFL_SESSION=75D8EFA9-5133-4F53-AD3F-D349E8A66578";
+
 const buildLicenseDict = (rawDB) => {
   let regexLicense = /LICENSE_NUMBER=([^VEHICLE_ID]*)/g;
   let regexVehicleID = /VEHICLE_ID=([^VEHICLE_TYPE]*)/g;
@@ -50,7 +51,7 @@ function processPolicies(policiesData) {
     arr.push(JSON.stringify(temp));
   }
 
-  fs.writeFile("./policiesRawDB.txt", arr.join(", "), (err) => {
+  fs.writeFile("./policiesRawDB.json", "[" + arr.join(", ") + "]", (err) => {
     if (err) {
       console.log("error in writing to file");
     } else {
@@ -59,12 +60,48 @@ function processPolicies(policiesData) {
   });
 }
 async function getVehicleIDAxios(subscribercode) {
-  axios
-    .post(
+  try {
+    const result = axios
+      .post(
+        "https://html5.traffilog.com/AppEngine_2_1/default.aspx",
+        "SUBSCRIBER_CODE=" +
+          subscribercode +
+          "&action=GET_POLICY_VEHICLES&VERSION_ID=2",
+        {
+          headers: {
+            accept: "*/*",
+            "accept-language": "he-IL,he;q=0.9",
+            "content-type": "application/x-www-form-urlencoded",
+            priority: "u=1, i",
+            "sec-ch-ua":
+              '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            cookie: global_cookies + global_tfl_session,
+
+            Referer: "https://html5.traffilog.com/appv2/index.htm",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+          },
+        }
+      )
+      .then((res) => {
+        console.log(res.data);
+        console.log(res.data.length);
+        const dict = buildLicenseDict(res.data);
+        console.log("getVehicleIDAxios success");
+        return dict;
+      });
+  } catch (error) {
+    console.log("getVehicleIDAxios failed");
+  }
+}
+async function getSubscriberCars(subscribercode) {
+  try {
+    const result = await fetch(
       "https://html5.traffilog.com/AppEngine_2_1/default.aspx",
-      "SUBSCRIBER_CODE=" +
-        subscribercode +
-        "&action=GET_POLICY_VEHICLES&VERSION_ID=2",
       {
         headers: {
           accept: "*/*",
@@ -78,61 +115,28 @@ async function getVehicleIDAxios(subscribercode) {
           "sec-fetch-dest": "empty",
           "sec-fetch-mode": "cors",
           "sec-fetch-site": "same-origin",
+
           cookie: global_cookies + global_tfl_session,
 
           Referer: "https://html5.traffilog.com/appv2/index.htm",
           "Referrer-Policy": "strict-origin-when-cross-origin",
         },
+        body:
+          "SUBSCRIBER_CODE=" +
+          subscribercode +
+          "&action=GET_POLICY_VEHICLES&VERSION_ID=2",
+        method: "POST",
       }
-    )
-    .then(
-      (res) => {
-        console.log(res.data);
-        console.log(res.data.length);
-        return buildLicenseDict(res.data);
-      }
-      //   data.json().then((data) => {
-      //     // let endDate = new Date();
-      //     // console.log("Time passed: ", Math.abs(endDate - startDate), "ms");
-      //     console.log(data.length);
-      //     return buildLicenseDict(data);
-      //   })
+    ).then((data) =>
+      data.text().then((data) => {
+        console.log("getSubscriberCars success");
+        return buildLicenseDict(data);
+      })
     );
-}
-async function getSubscriberCars(subscribercode) {
-  let startDate = new Date();
-  await fetch("https://html5.traffilog.com/AppEngine_2_1/default.aspx", {
-    headers: {
-      accept: "*/*",
-      "accept-language": "he-IL,he;q=0.9",
-      "content-type": "application/x-www-form-urlencoded",
-      priority: "u=1, i",
-      "sec-ch-ua":
-        '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"Windows"',
-      "sec-fetch-dest": "empty",
-      "sec-fetch-mode": "cors",
-      "sec-fetch-site": "same-origin",
-
-      cookie: global_cookies + global_tfl_session,
-
-      Referer: "https://html5.traffilog.com/appv2/index.htm",
-      "Referrer-Policy": "strict-origin-when-cross-origin",
-    },
-    body:
-      "SUBSCRIBER_CODE=" +
-      subscribercode +
-      "&action=GET_POLICY_VEHICLES&VERSION_ID=2",
-    method: "POST",
-  }).then((data) =>
-    data.text().then((data) => {
-      let endDate = new Date();
-      console.log("Time passed: ", Math.abs(endDate - startDate), "ms");
-      console.log(data.length);
-      return buildLicenseDict(data);
-    })
-  );
+  } catch (error) {
+    console.log("getSubscriberCars failed");
+    return undefined;
+  }
 }
 async function fetchPolicies() {
   try {
@@ -217,6 +221,7 @@ async function main() {
   const sessionID_success = await getSessionID();
   if (sessionID_success) {
     fetchPolicies();
+    // getVehicleIDAxios(240013648150);
   }
 }
 main();
