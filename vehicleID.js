@@ -3,7 +3,10 @@ const fs = require("node:fs");
 const { resolve } = require("node:path");
 
 let global_cookies = "";
-let global_tfl_session = "; TFL_SESSION=75D8EFA9-5133-4F53-AD3F-D349E8A66578";
+let global_tfl_session = "";
+// 339D0C11-2203-4CB1-A4EB-CBA500692FCE
+// 75D8EFA9-5133-4F53-AD3F-D349E8A66578
+// ; TFL_SESSION=75D8EFA9-5133-4F53-AD3F-D349E8A66578
 
 const buildLicenseDict = (rawDB) => {
   let regexLicense = /LICENSE_NUMBER=([^VEHICLE_ID]*)/g;
@@ -150,6 +153,19 @@ async function fetchPoliciesAxios() {
     return false;
   }
 }
+function setCookies(responseCookies) {
+  const regex1 = /(AWSALB=[^;]*;)/;
+  const regex2 = /(AWSALBCORS=[^;]*);/;
+  const regex3 = /(ASP.NET_SessionId=[^;]*;)/;
+  const sufix =
+    "APPLICATION_ROOT_NODE={'node':'-2'}; LOGIN_DATA=; EULA_APPROVED=1;";
+  // match regex with raw cookies
+  const awslab = responseCookies.match(regex1)[0];
+  const awscors = responseCookies.match(regex2)[0];
+  const aspSessionID = responseCookies.match(regex3)[0];
+  const cookies = awslab + awscors + aspSessionID + sufix;
+  return cookies;
+}
 async function getSessionID() {
   try {
     const response = await axios
@@ -173,39 +189,49 @@ async function getSessionID() {
         },
       })
       .then((res) => {
-        const cookies = res.headers["set-cookie"].join(";");
+        const responseRawCookies = res.headers["set-cookie"].join(";");
+        const cookies = setCookies(responseRawCookies);
         console.log("getSessionID OK");
         return cookies;
       });
     return response;
   } catch (error) {
-    console.log("getSessionID failed");
+    console.log("getSessionID failed", error);
     return undefined;
   }
 }
 async function retry(callBackFunc) {
+  console.log("trying again due to session id");
   const sessionID = await getSessionID();
   if (sessionID) {
     writeSessionID(sessionID);
     const result = await callBackFunc();
+    if (result === undefined) {
+      return false;
+    }
     return result;
   }
   return false;
 }
 function writeSessionID(sessionID) {
+  global_cookies = sessionID;
   try {
-    fs.writeFile("./config.json", { session_id: sessionID }, (err) => {
-      if (err) {
-        console.log("session id write to file -- failed");
-      } else {
-        console.log("Wrote session id into file -- OK");
+    fs.writeFile(
+      "./config.json",
+      '{ "session_id": ' + '"' + sessionID + '"}',
+      (err) => {
+        if (err) {
+          console.log("session id write to file -- failed");
+        } else {
+          console.log("Wrote session id into file -- OK");
+        }
       }
-    });
+    );
   } catch (error) {
-    console.log("Wrote session id into file -- failed");
+    console.log("Wrote session id into file -- failed", error);
   }
 }
-async function readSessionID() {
+async function readSessionIDFromFile() {
   if (global_cookies !== "") {
     return;
   }
@@ -226,23 +252,20 @@ async function readSessionID() {
 //       ####      USER FUNCTIONS      ####
 
 async function getVehicleID(subscribercode) {
-  readSessionID();
+  await readSessionIDFromFile();
   const result = await getVehicleIDAxios(subscribercode);
   if (result == undefined) {
-    console.log("trying again due to session id");
     retry((subscribercode) => getVehicleIDAxios(subscribercode));
   }
 }
 async function fetchPolicies() {
-  readSessionID();
+  readSessionIDFromFile();
   const result = await fetchPoliciesAxios();
   if (result == undefined) {
-    console.log("trying again due to session id");
     retry(() => fetchPoliciesAxios());
   }
 }
 getVehicleID(240013934653);
-console.log(global_cookies);
 module.exports = { getVehicleID, fetchPolicies };
 
 // cookie:
