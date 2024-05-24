@@ -1,5 +1,6 @@
 const axios = require("axios");
 const fs = require("node:fs");
+const loginTool = require("./htmlLogin");
 const { resolve } = require("node:path");
 
 let global_cookies = "";
@@ -83,7 +84,7 @@ async function getVehicleIDAxios(subscribercode) {
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
-            cookie: global_cookies + global_tfl_session,
+            cookies: global_cookies,
 
             Referer: "https://html5.traffilog.com/appv2/index.htm",
             "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -96,7 +97,7 @@ async function getVehicleIDAxios(subscribercode) {
           res.data.includes("error") ||
           res.data.includes("LOGOFF")
         ) {
-          console.log("getVehicleIDAxios failed");
+          console.log("getVehicleIDAxios failed", res.data);
           return undefined;
         }
         const dict = buildLicenseDict(res.data);
@@ -130,7 +131,7 @@ async function fetchPoliciesAxios() {
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
 
-            cookie: global_cookies + global_tfl_session,
+            cookies: global_cookies,
 
             Referer: "https://html5.traffilog.com/appv2/index.htm",
             "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -153,58 +154,11 @@ async function fetchPoliciesAxios() {
     return false;
   }
 }
-function setCookies(responseCookies) {
-  const regex1 = /(AWSALB=[^;]*;)/;
-  const regex2 = /(AWSALBCORS=[^;]*);/;
-  const regex3 = /(ASP.NET_SessionId=[^;]*;)/;
-  const sufix =
-    "APPLICATION_ROOT_NODE={'node':'-2'}; LOGIN_DATA=; EULA_APPROVED=1;";
-  // match regex with raw cookies
-  const awslab = responseCookies.match(regex1)[0];
-  const awscors = responseCookies.match(regex2)[0];
-  const aspSessionID = responseCookies.match(regex3)[0];
-  const cookies = awslab + awscors + aspSessionID + sufix;
-  return cookies;
-}
-async function getSessionID() {
-  try {
-    const response = await axios
-      .get("https://html5.traffilog.com/AppEngine_2_1/default.aspx", {
-        withCredentials: true,
-        headers: {
-          accept: "*/*",
-          "accept-language": "he-IL,he;q=0.9",
-          "content-type": "application/x-www-form-urlencoded",
-          priority: "u=1, i",
-          "sec-ch-ua":
-            '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
-          "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"Windows"',
-          "sec-fetch-dest": "empty",
-          "sec-fetch-mode": "cors",
-          "sec-fetch-site": "same-origin",
 
-          Referer: "https://html5.traffilog.com/appv2/index.htm",
-          "Referrer-Policy": "strict-origin-when-cross-origin",
-        },
-      })
-      .then((res) => {
-        const responseRawCookies = res.headers["set-cookie"].join(";");
-        const cookies = setCookies(responseRawCookies);
-        console.log("getSessionID OK");
-        return cookies;
-      });
-    return response;
-  } catch (error) {
-    console.log("getSessionID failed", error);
-    return undefined;
-  }
-}
 async function retry(callBackFunc) {
   console.log("trying again due to session id");
-  const sessionID = await getSessionID();
-  if (sessionID) {
-    writeSessionID(sessionID);
+  const isLoggedIn = await loginTool.getServerCookies();
+  if (isLoggedIn) {
     const result = await callBackFunc();
     if (result === undefined) {
       return false;
@@ -213,37 +167,18 @@ async function retry(callBackFunc) {
   }
   return false;
 }
-function writeSessionID(sessionID) {
-  global_cookies = sessionID;
-  try {
-    fs.writeFile(
-      "./config.json",
-      '{ "session_id": ' + '"' + sessionID + '"}',
-      (err) => {
-        if (err) {
-          console.log("session id write to file -- failed");
-        } else {
-          console.log("Wrote session id into file -- OK");
-        }
-      }
-    );
-  } catch (error) {
-    console.log("Wrote session id into file -- failed", error);
-  }
-}
+
 async function readSessionIDFromFile() {
   if (global_cookies !== "") {
     return;
   }
   try {
-    if (fs.existsSync("./config.json")) {
-      const data = fs.readFileSync("./config.json");
-      global_cookies = JSON.parse(data).session_id;
-      return;
-    } else {
-      const session_id = await getSessionID();
-      writeSessionID(session_id);
+    if (!fs.existsSync("./config.json")) {
+      await loginTool.getServerCookies();
     }
+    const data = fs.readFileSync("./config.json");
+    global_cookies = JSON.parse(data).session_id;
+    console.log("Read cookies from file");
   } catch (error) {
     console.log("failure in read session ID");
   }
