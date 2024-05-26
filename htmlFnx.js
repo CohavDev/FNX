@@ -83,8 +83,8 @@ async function getVehicleIDAxios(subscribercode) {
             "sec-ch-ua-platform": '"Windows"',
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin",
-            cookies: global_cookies,
+            "sec-fetch-site": "cross-origin",
+            cookie: global_cookies,
 
             Referer: "https://html5.traffilog.com/appv2/index.htm",
             "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -131,7 +131,7 @@ async function fetchPoliciesAxios() {
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
 
-            cookies: global_cookies,
+            cookie: global_cookies,
 
             Referer: "https://html5.traffilog.com/appv2/index.htm",
             "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -157,8 +157,12 @@ async function fetchPoliciesAxios() {
 
 async function retry(callBackFunc) {
   console.log("trying again due to session id");
-  const isLoggedIn = await loginTool.getServerCookies();
-  if (isLoggedIn) {
+  const loginCookies = await loginTool.getServerCookies();
+  console.log(loginCookies);
+  // const isLoggedIn = true;
+  if (loginCookies !== undefined) {
+    // global_cookies = loginCookies;
+    await readSessionIDFromFile();
     const result = await callBackFunc();
     if (result === undefined) {
       return false;
@@ -190,7 +194,7 @@ async function getVehicleID(subscribercode) {
   await readSessionIDFromFile();
   const result = await getVehicleIDAxios(subscribercode);
   if (result == undefined) {
-    retry((subscribercode) => getVehicleIDAxios(subscribercode));
+    retry(() => getVehicleIDAxios(subscribercode));
   }
 }
 async function fetchPolicies() {
@@ -200,8 +204,5 @@ async function fetchPolicies() {
     retry(() => fetchPoliciesAxios());
   }
 }
-getVehicleID(240013934653);
+// getVehicleID(240013934653);
 module.exports = { getVehicleID, fetchPolicies };
-
-// cookie:
-// 'ASP.NET_SessionId=ybvh5w2uysashuv1wxlnfmpy; TFL_SESSION=75D8EFA9-5133-4F53-AD3F-D349E8A66578; EULA_APPROVED=1; APPLICATION_ROOT_NODE={"node":"-2"}; AWSALB=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP; AWSALBCORS=aucT8O3rW4NLUC+yH1doaZ5R2xo+b+iTvaixVK3CDwUhC9zQhh96qGP+A4VuXuUWVCy7TSOdT3Qg4+pSsbyOKl1VlFWx+x/iPZEHkJ3yxuApZ3s5le3BhhuXUSvP',

@@ -3,6 +3,7 @@ const fs = require("fs");
 
 const username = "shaulc";
 const password = "SC123ab!";
+let session_id_GLOBAL = "";
 const URL = "https://html5.traffilog.com/AppEngine_2_1/default.aspx";
 function processCookies(cookies) {
   const regex = /.*?;/;
@@ -15,16 +16,26 @@ function processCookies(cookies) {
   }
   return arr;
 }
+function getSession_Id(cookies) {
+  const regex = /ASP.NET_SessionId=([^;]*;)/;
+  const result = cookies.match(regex)[0];
+  return result;
+}
 async function writeCookiesToFile(cookies) {
   const cookiesObj = {};
+  // replace session_id token
+  const regex = /ASP.NET_SessionId=([^;]*;)/;
+  cookies.replace(regex, session_id_GLOBAL);
   cookiesObj["session_id"] =
     cookies +
     'EULA_APPROVED=1; APPLICATION_ROOT_NODE={"node":"-2"};LOGIN_DATA=;';
   try {
     fs.writeFileSync("./config.json", JSON.stringify(cookiesObj));
     console.log("SUCCESS: wrote cookies to file");
+    return cookiesObj.session_id;
   } catch (error) {
     console.log("ERROR: could not write cookies to file", error);
+    return undefined;
   }
 }
 async function getServerCookies() {
@@ -37,6 +48,7 @@ async function getServerCookies() {
         displayNode: "-1",
       },
       {
+        // withCredentials: true,
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
@@ -50,13 +62,12 @@ async function getServerCookies() {
         },
       }
     )
-    .then((res) => {
+    .then(async (res) => {
       const rawCookies = res.headers["set-cookie"];
       const cookies = processCookies(rawCookies).join(" ");
-      //   console.log(cookies);
-      writeCookiesToFile(cookies);
-      const loginResult = logIn();
-      return loginResult;
+      session_id_GLOBAL = getSession_Id(cookies);
+      const loginCookies = await logIn(cookies);
+      return loginCookies;
     });
 }
 async function logIn(cookiesStr) {
@@ -72,6 +83,7 @@ async function logIn(cookiesStr) {
         VERSION_ID: "2",
       },
       {
+        // withCredentials: true,
         headers: {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
@@ -87,15 +99,18 @@ async function logIn(cookiesStr) {
         },
       }
     )
-    .then((res) => {
+    .then(async (res) => {
       if (res.data.includes("REDIRECT")) {
         console.log("logged in successfully");
-        return true;
+        const rawCookies = res.headers["set-cookie"];
+        const cookies = processCookies(rawCookies).join(" ");
+        const cookiesInFile = await writeCookiesToFile(cookies);
+        return cookiesInFile;
       } else {
         console.log("log in failed", res.data);
-        return false;
+        return undefined;
       }
     });
 }
-
+// getServerCookies();
 module.exports = { getServerCookies };
