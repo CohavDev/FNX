@@ -194,15 +194,17 @@ async function getVehicleID(subscribercode) {
   await readSessionIDFromFile();
   const result = await getVehicleIDAxios(subscribercode);
   if (result == undefined) {
-    retry(() => getVehicleIDAxios(subscribercode));
+    return retry(() => getVehicleIDAxios(subscribercode));
   }
+  return result;
 }
 async function fetchPolicies() {
   readSessionIDFromFile();
   const result = await fetchPoliciesAxios();
   if (result == undefined) {
-    retry(() => fetchPoliciesAxios());
+    return retry(() => fetchPoliciesAxios());
   }
+  return result;
 }
 // getVehicleID(240013934653);
 module.exports = { getVehicleID, fetchPolicies };
