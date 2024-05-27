@@ -49,13 +49,14 @@ function processPolicies(policiesData) {
   let regex = /<Data([^/>]*)/g;
   let match = policiesData.matchAll(regex);
   let resultRegex = Array.from(match, (m) => m[1].replace(/"/g, "").trim());
-  let arr = [];
+  let arr = {};
   for (let i = 0; i < resultRegex.length; i++) {
-    const temp = processPolicyOne(resultRegex[i]);
-    arr.push(JSON.stringify(temp));
+    const tempObject = processPolicyOne(resultRegex[i]);
+    const tempSubscriber = tempObject["SUBSCRIBER_CODE"];
+    arr[tempSubscriber] = tempObject;
   }
 
-  fs.writeFile("./policiesRawDB.json", "[" + arr.join(", ") + "]", (err) => {
+  fs.writeFile("./policiesRawDB.json", JSON.stringify(arr), (err) => {
     if (err) {
       console.log("error in writing to file");
     } else {
@@ -100,8 +101,16 @@ async function getVehicleIDAxios(subscribercode) {
           console.log("getVehicleIDAxios failed", res.data);
           return undefined;
         }
+        if (!res.data.includes("DATASOURCE")) {
+          console.log(
+            "getVehicleIDAxios failed -- subscriber not found",
+            res.data
+          );
+          return false;
+        }
         const dict = buildLicenseDict(res.data);
         console.log("getVehicleIDAxios success", res.data);
+
         return dict;
       });
     return result;
@@ -154,7 +163,39 @@ async function fetchPoliciesAxios() {
     return false;
   }
 }
-
+async function getClientID(subscriber) {
+  if (fs.existsSync("./policiesRawDB.json")) {
+    try {
+      const fileRaw = fs.readFileSync("./policiesRawDB.json");
+      const fileJson = JSON.parse(fileRaw);
+      const search = fileJson[subscriber];
+      if (search === undefined) {
+        // fetch policies again
+        return await retryGetClient();
+      }
+      //else
+      return search;
+    } catch (error) {
+      console.log(error);
+      return false;
+    }
+  }
+}
+async function retryGetClient(subscriber) {
+  console.log("Fetching policies again for getclient...");
+  const isfetched = await fetchPolicies();
+  if (!isfetched) {
+    return false;
+  }
+  const fileRaw = fs.readFileSync("./policiesRawDB.json");
+  const fileJson = JSON.parse(fileRaw);
+  const search = fileJson[subscriber];
+  if (search === undefined) {
+    return false;
+  }
+  //else
+  return true;
+}
 async function retry(callBackFunc) {
   console.log("trying again due to session id");
   const loginCookies = await loginTool.getServerCookies();
@@ -207,4 +248,5 @@ async function fetchPolicies() {
   return result;
 }
 // getVehicleID(240013934653);
-module.exports = { getVehicleID, fetchPolicies };
+// fetchPolicies();
+module.exports = { getVehicleID, fetchPolicies, getClientID };
