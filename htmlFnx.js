@@ -64,6 +64,14 @@ function processPolicies(policiesData) {
     }
   });
 }
+function processClientDelivery(details) {
+  //regex to split by spaces, only if its not inside quotes
+  const resultSplit = details.split(/ +(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+  const body = resultSplit.join("&").replace(/['"]+/g, "");
+  const additional_details =
+    "FREE_TEXT=&REPLACE_ID=1&EDIT_DELIVERY_DETAILS=0&SPECIAL_NOTES=&NEW_INNER_ID=&action=FNX_REPLACE_INNER&VERSION_ID=2";
+  return body + additional_details;
+}
 async function getVehicleIDAxios(subscribercode) {
   try {
     const result = axios
@@ -196,6 +204,79 @@ async function retryGetClient(subscriber) {
   //else
   return true;
 }
+async function getClientOrderDetailsAxios(license, vehicle_id) {
+  console.log("Getting client's order details");
+  const result = await axios
+    .post(
+      "https://html5.traffilog.com/AppEngine_2_1/default.aspx",
+      "LICENSE_NUMBER=" +
+        license +
+        "&VEHICLE_ID=" +
+        vehicle_id +
+        "&action=FNX_GET_VEHICLES_DETAILS&VERSION_ID=2",
+      {
+        headers: {
+          accept: "*/*",
+          "accept-language": "he-IL,he;q=0.9",
+          "content-type": "application/x-www-form-urlencoded",
+          priority: "u=1, i",
+          "sec-ch-ua":
+            '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "cross-origin",
+          cookie: global_cookies,
+
+          Referer: "https://html5.traffilog.com/appv2/index.htm",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+        },
+      }
+    )
+    .then((res) => {
+      console.log("finished with status = ", res.status);
+      const regex = /<DATA ([^/>]*)/;
+      let result = res.data.match(regex);
+      if (result) {
+        result = result[1];
+        const details = processClientDelivery(result);
+        console.log(details);
+        return details;
+      }
+      return false;
+    });
+}
+async function replaceUnit(license, vehicle_id) {
+  const deliveryDetails = await getClientOrderDetails(license, vehicle_id);
+  console.log("replacing unit...  ", license);
+  await axios
+    .post(
+      "https://html5.traffilog.com/AppEngine_2_1/default.aspx",
+      deliveryDetails,
+      {
+        headers: {
+          accept: "*/*",
+          "accept-language": "he-IL,he;q=0.9",
+          "content-type": "application/x-www-form-urlencoded",
+          priority: "u=1, i",
+          "sec-ch-ua":
+            '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"',
+          "sec-ch-ua-mobile": "?0",
+          "sec-ch-ua-platform": '"Windows"',
+          "sec-fetch-dest": "empty",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-site": "same-origin",
+
+          cookie: global_cookies,
+
+          Referer: "https://html5.traffilog.com/appv2/index.htm",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+        },
+      }
+    )
+    .then((res) => console.log(res.data));
+}
 async function retry(callBackFunc) {
   console.log("trying again due to session id");
   const loginCookies = await loginTool.getServerCookies();
@@ -228,25 +309,87 @@ async function readSessionIDFromFile() {
     console.log("failure in read session ID");
   }
 }
-
+//   Helper func for user functions
+async function userFunc(callbackFunc) {
+  await readSessionIDFromFile();
+  const result = await callbackFunc();
+  if (result == undefined) {
+    return retry(callbackFunc);
+  }
+  return result;
+}
 //       ####      USER FUNCTIONS      ####
 
 async function getVehicleID(subscribercode) {
-  await readSessionIDFromFile();
-  const result = await getVehicleIDAxios(subscribercode);
-  if (result == undefined) {
-    return retry(() => getVehicleIDAxios(subscribercode));
-  }
-  return result;
+  return userFunc(() => getVehicleIDAxios(subscribercode));
+  // await readSessionIDFromFile();
+  // const result = await getVehicleIDAxios(subscribercode);
+  // if (result == undefined) {
+  //   return retry(() => getVehicleIDAxios(subscribercode));
+  // }
+  // return result;
 }
 async function fetchPolicies() {
-  readSessionIDFromFile();
-  const result = await fetchPoliciesAxios();
-  if (result == undefined) {
-    return retry(() => fetchPoliciesAxios());
-  }
-  return result;
+  return userFunc(() => fetchPoliciesAxios());
+  // readSessionIDFromFile();
+  // const result = await fetchPoliciesAxios();
+  // if (result == undefined) {
+  //   return retry(() => fetchPoliciesAxios());
+  // }
+  // return result;
 }
-// getVehicleID(240013934653);
-// fetchPolicies();
+async function getClientOrderDetails(license, vehicleId) {
+  return userFunc(() => getClientOrderDetailsAxios(license, vehicleId));
+}
+// replaceUnit() TODO:check this
+// getClientOrderDetails(3105133, 1792547);
+// getVehicleID()
+// const details = processClientDelivery(
+//   'VEHICLE_ID="1792547" LICENSE_NUMBER="3105133" INNER_ID="1062851" SUB_NUMBER="230013076633" ADMIN_ID="31811599" ADMIN_NAME="שטטמן אביעד" DELIVERYCITY="יצהר" DELIVERYSTREET="פרי הארץ" DELIVERYHOUSE="224" DELIVERYFLAT="0" DELIVERYPHONE="0508331188" SPECIALNOTES=""'
+// );
 module.exports = { getVehicleID, fetchPolicies, getClientID };
+
+// ####         REPLACE UNIT HTML         ####
+//      Details of license for delivery:
+
+// await fetch("https://html5.traffilog.com/AppEngine_2_1/default.aspx", {
+//     "credentials": "include",
+//     "headers": {
+//         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+//         "Accept": "*/*",
+//         "Accept-Language": "he,en-US;q=0.7,en;q=0.3",
+//         "Content-Type": "application/x-www-form-urlencoded",
+//         "Sec-Fetch-Dest": "empty",
+//         "Sec-Fetch-Mode": "cors",
+//         "Sec-Fetch-Site": "same-origin",
+//         "Priority": "u=1"
+//     },
+//     "referrer": "https://html5.traffilog.com/appv2/index.htm",
+//     "body": "LICENSE_NUMBER=12011103&VEHICLE_ID=1701446&action=FNX_GET_VEHICLES_DETAILS&VERSION_ID=2",
+//     "method": "POST",
+//     "mode": "cors"
+// });
+
+// Replace unit -- save
+// await fetch("https://html5.traffilog.com/AppEngine_2_1/default.aspx", {
+//     "credentials": "include",
+//     "headers": {
+//         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
+//         "Accept": "*/*",
+//         "Accept-Language": "he,en-US;q=0.7,en;q=0.3",
+//         "Content-Type": "application/x-www-form-urlencoded",
+//         "Sec-Fetch-Dest": "empty",
+//         "Sec-Fetch-Mode": "cors",
+//         "Sec-Fetch-Site": "same-origin",
+//         "Priority": "u=1"
+//     },
+//     "referrer": "https://html5.traffilog.com/appv2/index.htm",
+//     "body": "VEHICLE_ID=1873489&INNER_ID=863251070316919&SUB_NUMBER=240013884944&ADMIN_ID=341281020&ADMIN_NAME=%D7%91%D7%99%D7%A0%D7%A0%D7%A4%D7%9C%D7%93%20%D7%93%D7%95%D7%93&FREE_TEXT=%D7%9C%D7%90%20%D7%9E%D7%A9%D7%93%D7%A8%D7%AA&REPLACE_ID=1&EDIT_DELIVERY_DETAILS=0&DELIVERYPHONE=0584161456&DELIVERYCITY=%D7%91%D7%99%D7%AA%20%D7%A9%D7%9E%D7%A9&DELIVERYSTREET=%D7%A0%D7%97%D7%9C%20%D7%A2%D7%99%D7%9F%20%D7%92%D7%93%D7%99&DELIVERYHOUSE=43&DELIVERYFLAT=0&SPECIALNOTES=&NEW_INNER_ID=&action=FNX_REPLACE_INNER&VERSION_ID=2",
+//     "method": "POST",
+//     "mode": "cors"
+// });
+
+// VEHICLE_ID=1873489&INNER_ID=863251070316919&SUB_NUMBER=240013884944&ADMIN_ID=341281020&ADMIN_NAME=%D7%91%D7%99%D7%A0%D7%A0%D7%A4%D7%9C%D7%93%20%D7%93%D7%95%D7%93&FREE_TEXT=%D7%9C%D7%90%20%D7%9E%D7%A9%D7%93%D7%A8%D7%AA&REPLACE_ID=1&EDIT_DELIVERY_DETAILS=0&DELIVERYPHONE=0584161456&DELIVERYCITY=%D7%91%D7%99%D7%AA%20%D7%A9%D7%9E%D7%A9&DELIVERYSTREET=%D7%A0%D7%97%D7%9C%20%D7%A2%D7%99%D7%9F%20%D7%92%D7%93%D7%99&DELIVERYHOUSE=43&DELIVERYFLAT=0&SPECIALNOTES=&NEW_INNER_ID=&action=FNX_REPLACE_INNER&VERSION_ID=2
+
+// response:
+// ​<MESSAGE><TEXT>Some error occurred. SessionID=g4s2hyvx4w5pyu0lzwwfymst.</TEXT></MESSAGE>
