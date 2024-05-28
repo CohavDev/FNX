@@ -5,9 +5,6 @@ const { resolve } = require("node:path");
 
 let global_cookies = "";
 let global_tfl_session = "";
-// 339D0C11-2203-4CB1-A4EB-CBA500692FCE
-// 75D8EFA9-5133-4F53-AD3F-D349E8A66578
-// ; TFL_SESSION=75D8EFA9-5133-4F53-AD3F-D349E8A66578
 
 const buildLicenseDict = (rawDB) => {
   let regexLicense = /LICENSE_NUMBER=([^VEHICLE_ID]*)/g;
@@ -218,7 +215,7 @@ async function retryGetClient(subscriber) {
 }
 async function getClientOrderDetailsAxios(license, vehicle_id) {
   console.log("Getting client's order details");
-  const result = await axios
+  return await axios
     .post(
       "https://html5.traffilog.com/AppEngine_2_1/default.aspx",
       "LICENSE_NUMBER=" +
@@ -259,10 +256,10 @@ async function getClientOrderDetailsAxios(license, vehicle_id) {
       return false;
     });
 }
-async function replaceUnit(license, vehicle_id) {
+async function replaceUnitAxios(license, vehicle_id) {
   const deliveryDetails = await getClientOrderDetails(license, vehicle_id);
   console.log("replacing unit...  ", license);
-  await axios
+  return await axios
     .post(
       "https://html5.traffilog.com/AppEngine_2_1/default.aspx",
       deliveryDetails,
@@ -287,7 +284,10 @@ async function replaceUnit(license, vehicle_id) {
         },
       }
     )
-    .then((res) => console.log(res.data));
+    .then((res) => {
+      console.log(res.data);
+      return res.data;
+    });
 }
 async function retry(callBackFunc) {
   console.log("trying again due to session id");
@@ -334,32 +334,18 @@ async function userFunc(callbackFunc) {
 
 async function getVehicleID(subscribercode) {
   return userFunc(() => getVehicleIDAxios(subscribercode));
-  // await readSessionIDFromFile();
-  // const result = await getVehicleIDAxios(subscribercode);
-  // if (result == undefined) {
-  //   return retry(() => getVehicleIDAxios(subscribercode));
-  // }
-  // return result;
 }
 async function fetchPolicies() {
   return userFunc(() => fetchPoliciesAxios());
-  // readSessionIDFromFile();
-  // const result = await fetchPoliciesAxios();
-  // if (result == undefined) {
-  //   return retry(() => fetchPoliciesAxios());
-  // }
-  // return result;
 }
 async function getClientOrderDetails(license, vehicleId) {
   return userFunc(() => getClientOrderDetailsAxios(license, vehicleId));
 }
 // replaceUnit() TODO:check this
-// getClientOrderDetails(3105133, 1792547);
-// getVehicleID()
-// const details = processClientDelivery(
-//   'VEHICLE_ID="1792547" LICENSE_NUMBER="3105133" INNER_ID="1062851" SUB_NUMBER="230013076633" ADMIN_ID="31811599" ADMIN_NAME="שטטמן אביעד" DELIVERYCITY="יצהר" DELIVERYSTREET="פרי הארץ" DELIVERYHOUSE="224" DELIVERYFLAT="0" DELIVERYPHONE="0508331188" SPECIALNOTES=""'
-// );
-module.exports = { getVehicleID, fetchPolicies, getClientID };
+async function replaceUnit(license, vehicle_id) {
+  return userFunc(() => replaceUnitAxios(license, vehicle_id));
+}
+module.exports = { getVehicleID, fetchPolicies, getClientID, replaceUnit };
 
 // ####         REPLACE UNIT HTML         ####
 //      Details of license for delivery:
