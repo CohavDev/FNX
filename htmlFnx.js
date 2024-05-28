@@ -12,9 +12,11 @@ let global_tfl_session = "";
 const buildLicenseDict = (rawDB) => {
   let regexLicense = /LICENSE_NUMBER=([^VEHICLE_ID]*)/g;
   let regexVehicleID = /VEHICLE_ID=([^VEHICLE_TYPE]*)/g;
+  let regexObdInnerId = /OBD_NUMBER=([^LAST_GRPS]*)/g;
 
   let matchLicense = rawDB.matchAll(regexLicense);
   let matchVehicelID = rawDB.matchAll(regexVehicleID);
+  let matchInnerId = rawDB.matchAll(regexObdInnerId);
 
   let resultsLicense = Array.from(matchLicense, (m) =>
     m[1].replace(/"/g, "").trim()
@@ -22,9 +24,15 @@ const buildLicenseDict = (rawDB) => {
   let resultsVehicleID = Array.from(matchVehicelID, (m) =>
     m[1].replace(/"/g, "").trim()
   );
+  let resultsInnerId = Array.from(matchInnerId, (m) =>
+    m[1].replace(/"/g, "").trim()
+  );
   const jsonObject = {};
   for (let i = 0; i < resultsLicense.length; i++) {
-    jsonObject[resultsLicense[i]] = resultsVehicleID[i];
+    jsonObject[resultsLicense[i]] = {
+      vehicle_id: resultsVehicleID[i],
+      inner_id: resultsInnerId[i],
+    };
   }
   console.log(jsonObject);
   return jsonObject;
@@ -73,6 +81,10 @@ function processClientDelivery(details) {
   return body + additional_details;
 }
 async function getVehicleIDAxios(subscribercode) {
+  if (subscribercode === "" || subscribercode === "0") {
+    console.log("subscribercode is empty");
+    return false;
+  }
   try {
     const result = axios
       .post(

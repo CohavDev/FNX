@@ -5,7 +5,11 @@ const utiliTools = require("./utilitiesFnx");
 const htmlTool = require("./htmlFnx");
 
 const app = Express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+  })
+);
 app.use(bodyParser.json());
 
 app.listen(5038, () => {
@@ -42,8 +46,8 @@ app.get("/api/traffilogHtml/getAllPolicies", (req, res) => {
 });
 app.post("/api/utilities/connectUnit", (req, res) => {
   const subscriber = req.body["subscriber"];
-  const license = req.body["subscriber"];
-  const innerId = req.body["subscriber"];
+  const license = req.body["license"];
+  const innerId = req.body["innerId"];
 
   function logServerMsg(msg) {
     console.log(msg.length);
