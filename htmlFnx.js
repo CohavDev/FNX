@@ -9,11 +9,13 @@ let global_tfl_session = "";
 const buildLicenseDict = (rawDB) => {
   let regexLicense = /LICENSE_NUMBER=([^VEHICLE_ID]*)/g;
   let regexVehicleID = /VEHICLE_ID=([^VEHICLE_TYPE]*)/g;
-  let regexObdInnerId = /OBD_NUMBER=([^LAST_GRPS]*)/g;
+  let regexObdInnerId = /OBD_NUMBER=([^LAST_GPRS]*)/g;
+  let regexLastGPRS = /LAST_GPRS=([^LAST]*)/g;
 
   let matchLicense = rawDB.matchAll(regexLicense);
   let matchVehicelID = rawDB.matchAll(regexVehicleID);
   let matchInnerId = rawDB.matchAll(regexObdInnerId);
+  let matchLastGRPS = rawDB.matchAll(regexLastGPRS);
 
   let resultsLicense = Array.from(matchLicense, (m) =>
     m[1].replace(/"/g, "").trim()
@@ -24,11 +26,15 @@ const buildLicenseDict = (rawDB) => {
   let resultsInnerId = Array.from(matchInnerId, (m) =>
     m[1].replace(/"/g, "").trim()
   );
+  let resultsLastGRPS = Array.from(matchLastGRPS, (m) =>
+    m[1].replace(/"/g, "").trim()
+  );
   const jsonObject = {};
   for (let i = 0; i < resultsLicense.length; i++) {
     jsonObject[resultsLicense[i]] = {
       vehicle_id: resultsVehicleID[i],
       inner_id: resultsInnerId[i],
+      last_GRPS: resultsLastGRPS[i],
     };
   }
   console.log(jsonObject);

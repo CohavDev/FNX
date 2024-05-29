@@ -109,7 +109,7 @@ function connectUnit(subscriber, license, innerID) {
   utilitiesWS.send(JSON.stringify(msgData));
 }
 
-let utilitiesWS;
+var utilitiesWS;
 const logInUtilities = {
   action: {
     name: "user_login",
@@ -135,18 +135,38 @@ const logInUtilities = {
 
 const utilitiesBuffer = [];
 //       MAIN
-async function conenctUnitUser(subscriber, license, innerID, callbackFunc) {
-  // await logIn();
-  // await getInnerId(36605002);
-  // await getSubscriberNumber(36605002);
-  utilitiesWS = new ws(
-    "wss://websocket.traffilog.com:8182/0309EF54-2931-4F5F-A8DE-906264884FCF/TOKEN/json"
-  );
-  utilitiesWS.on("open", () => {
-    console.log("websocket openned");
-    utilitiesWS.send(JSON.stringify(logInUtilities));
-  });
+async function conenctUnitUser(
+  subscriber,
+  license,
+  innerID,
+  callbackFunc,
+  myWebsocket,
+  setWebSocketCallback
+) {
   let islogged = false;
+  let openNew = false;
+  if (myWebsocket === undefined) {
+    openNew = true;
+  } else {
+    if (myWebsocket.readyState === ws.CLOSED) {
+      openNew = true;
+    }
+  }
+  if (openNew) {
+    utilitiesWS = new ws(
+      "wss://websocket.traffilog.com:8182/0309EF54-2931-4F5F-A8DE-906264884FCF/TOKEN/json"
+    );
+    setWebSocketCallback(utilitiesWS);
+    utilitiesWS.on("open", () => {
+      console.log("websocket openned");
+      utilitiesWS.send(JSON.stringify(logInUtilities));
+    });
+  } else {
+    //need fix
+    utilitiesWS = myWebsocket;
+    islogged = true;
+    connectUnit(subscriber, license, innerID);
+  }
   utilitiesWS.on("message", function incoming(data) {
     const jsonData = utilitiesBuffer.push(data.toString());
     console.log("pushed message to buffer");
@@ -155,15 +175,20 @@ async function conenctUnitUser(subscriber, license, innerID, callbackFunc) {
       const responseObj = JSON.parse(utilitiesBuffer.slice(-3).join(""));
       const sessionToken = responseObj.response.properties.session_token;
       const description = responseObj.response.properties.description;
-      callbackFunc(description.toString());
       console.log(responseObj);
       utilities_session_token_GLOBAL = sessionToken;
-      if (!islogged) {
+      if (!islogged && openNew) {
         connectUnit(subscriber, license, innerID);
         islogged = true;
+      } else {
+        callbackFunc(description.toString());
       }
     }
   });
 }
 
-module.exports = { conenctUnitUser, logInFieldWork, logInUtilities };
+module.exports = {
+  conenctUnitUser,
+  logInFieldWork,
+  logInUtilities,
+};

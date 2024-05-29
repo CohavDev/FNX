@@ -12,6 +12,8 @@ app.use(
 );
 app.use(bodyParser.json());
 
+var myWebsocket;
+
 app.listen(5038, () => {
   console.log("port 5038 initallized");
 });
@@ -44,6 +46,15 @@ app.get("/api/traffilogHtml/getAllPolicies", (req, res) => {
   }
   run();
 });
+app.post("/api/traffilogHtml/replaceUnit", (req, res) => {
+  const license = req.body["license"];
+  const vehicle_id = req.body["vehicle_id"];
+  async function run() {
+    const result = await htmlTool.replaceUnit(license, vehicle_id);
+    res.send(result);
+  }
+  run();
+});
 app.post("/api/utilities/connectUnit", (req, res) => {
   const subscriber = req.body["subscriber"];
   const license = req.body["license"];
@@ -54,15 +65,23 @@ app.post("/api/utilities/connectUnit", (req, res) => {
     if (msg.length !== 0) {
       console.log("server msg = ", msg);
       res.send(msg);
+    } else {
+      console.log(
+        "server message = [empty], which means successfull connect unit operation"
+      );
+      res.send("Unit connected to vehicle successfully");
     }
   }
   async function run() {
     console.log("connecting unit...");
+    console.log("websocket: ", myWebsocket === undefined);
     const result = await utiliTools.conenctUnitUser(
       subscriber,
       license,
       innerId,
-      logServerMsg
+      logServerMsg,
+      undefined,
+      (ws) => (myWebsocket = undefined)
     );
   }
 
