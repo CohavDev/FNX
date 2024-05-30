@@ -80,8 +80,7 @@ app.post("/api/utilities/connectUnit", (req, res) => {
       license,
       innerId,
       logServerMsg,
-      undefined,
-      (ws) => (myWebsocket = undefined)
+      undefined // utiliTools.getWebSocket()
     );
   }
 

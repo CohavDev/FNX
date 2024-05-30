@@ -79,6 +79,18 @@ function processClientDelivery(details) {
   //regex to split by spaces, only if its not inside quotes
   const resultSplit = details.split(/ +(?=(?:(?:[^"]*"){2})*[^"]*$)/);
   const body = resultSplit.join("&").replace(/['"]+/g, "");
+  const regexInnerId = /INNER_ID=(.*?)&/;
+  const matchInner = body.match(regexInnerId)[1];
+  console.log(body);
+  console.log("inner id : ,", matchInner);
+  if (matchInner === null || matchInner === undefined) {
+    console.log("innerID is empty");
+    return false;
+  }
+  if (matchInner && matchInner.length === 0) {
+    console.log("innerID is empty");
+    return false;
+  }
   const additional_details =
     "FREE_TEXT=&REPLACE_ID=1&EDIT_DELIVERY_DETAILS=0&SPECIAL_NOTES=&NEW_INNER_ID=&action=FNX_REPLACE_INNER&VERSION_ID=2";
   return body + additional_details;
@@ -250,6 +262,7 @@ async function getClientOrderDetailsAxios(license, vehicle_id) {
       }
     )
     .then((res) => {
+      console.log(res.data);
       console.log("finished with status = ", res.status);
       const regex = /<DATA ([^/>]*)/;
       let result = res.data.match(regex);
@@ -257,13 +270,16 @@ async function getClientOrderDetailsAxios(license, vehicle_id) {
         result = result[1];
         const details = processClientDelivery(result);
         console.log(details);
-        return details;
+        if (details) return details;
       }
       return false;
     });
 }
 async function replaceUnitAxios(license, vehicle_id) {
   const deliveryDetails = await getClientOrderDetails(license, vehicle_id);
+  if (!deliveryDetails) {
+    return "Replace Unit Failed";
+  }
   console.log("replacing unit...  ", license);
   return await axios
     .post(

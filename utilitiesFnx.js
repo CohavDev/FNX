@@ -110,6 +110,9 @@ function connectUnit(subscriber, license, innerID) {
 }
 
 var utilitiesWS;
+function getWebSocket() {
+  return utilitiesWS;
+}
 const logInUtilities = {
   action: {
     name: "user_login",
@@ -140,8 +143,7 @@ async function conenctUnitUser(
   license,
   innerID,
   callbackFunc,
-  myWebsocket,
-  setWebSocketCallback
+  myWebsocket
 ) {
   let islogged = false;
   let openNew = false;
@@ -156,11 +158,11 @@ async function conenctUnitUser(
     utilitiesWS = new ws(
       "wss://websocket.traffilog.com:8182/0309EF54-2931-4F5F-A8DE-906264884FCF/TOKEN/json"
     );
-    setWebSocketCallback(utilitiesWS);
     utilitiesWS.on("open", () => {
       console.log("websocket openned");
       utilitiesWS.send(JSON.stringify(logInUtilities));
     });
+    utilitiesWS.on("close", () => console.log("Websocket closed"));
   } else {
     //need fix
     utilitiesWS = myWebsocket;
@@ -191,4 +193,5 @@ module.exports = {
   conenctUnitUser,
   logInFieldWork,
   logInUtilities,
+  getWebSocket,
 };
