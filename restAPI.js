@@ -55,12 +55,53 @@ app.post("/api/traffilogHtml/replaceUnit", (req, res) => {
   }
   run();
 });
+app.post("/api/utilities/realNewWorkOrder", (req, res) => {
+  const subscriber = req.body["subscriber"];
+  const vehicle_id = req.body["vehicle_id"];
+  const client_id = req.body["client_id"];
+
+  async function run() {
+    const result = await utiliTools.realNewWorkOrderUser(
+      subscriber,
+      client_id,
+      vehicle_id,
+      (msg) => logServerMsgNewWorkOrder(msg, res),
+      undefined // utiliTools.getWebSocket()
+    );
+    // res.send(result);
+  }
+  run();
+});
+app.post("/api/utilities/fakeNewWorkOrder", (req, res) => {
+  const subscriber = req.body["subscriber"];
+  const vehicle_id = req.body["vehicle_id"];
+  const client_id = req.body["client_id"];
+
+  async function run() {
+    const result = await utiliTools.fakeNewWorkOrderUser(
+      subscriber,
+      client_id,
+      vehicle_id,
+      (msg) => logServerMsgNewWorkOrder(msg, res),
+      undefined // utiliTools.getWebSocket()
+    );
+    // res.send(result);
+  }
+  run();
+});
+app.post("/api/utilities/disconnectUnit", (req, res) => {
+  const inner_id = req.body["inner_id"];
+  async function run() {
+    const result = await utiliTools.disconnectUnit(inner_id);
+    res.send(result);
+  }
+  run();
+});
 app.post("/api/utilities/connectUnit", (req, res) => {
   const subscriber = req.body["subscriber"];
   const license = req.body["license"];
   const innerId = req.body["innerId"];
-
-  function logServerMsg(msg) {
+  function logServerMsg(msg, res) {
     console.log(msg.length);
     if (msg.length !== 0) {
       console.log("server msg = ", msg);
@@ -75,14 +116,26 @@ app.post("/api/utilities/connectUnit", (req, res) => {
   async function run() {
     console.log("connecting unit...");
     console.log("websocket: ", myWebsocket === undefined);
-    const result = await utiliTools.conenctUnitUser(
+    const result = await utiliTools.connectUnitUser(
       subscriber,
       license,
       innerId,
-      logServerMsg,
+      (msg) => logServerMsg(msg, res),
       undefined // utiliTools.getWebSocket()
     );
   }
 
   run();
 });
+function logServerMsgNewWorkOrder(msg, res) {
+  console.log(msg.length);
+  if (msg.length !== 0) {
+    console.log("server msg = ", msg);
+    res.send(msg);
+  } else {
+    console.log(
+      "server message = [empty], which means successfull new work order"
+    );
+    res.send("נפתחה שליחות חדשה");
+  }
+}

@@ -67,7 +67,7 @@ function processPolicies(policiesData) {
     arr[tempSubscriber] = tempObject;
   }
 
-  fs.writeFile("./policiesRawDB.json", JSON.stringify(arr), (err) => {
+  fs.writeFileSync("./policiesRawDB.json", JSON.stringify(arr), (err) => {
     if (err) {
       console.log("error in writing to file");
     } else {
@@ -209,7 +209,7 @@ async function getClientID(subscriber) {
         return await retryGetClient();
       }
       //else
-      return search;
+      return search["CLIENT_ID"];
     } catch (error) {
       console.log(error);
       return false;

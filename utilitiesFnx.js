@@ -90,6 +90,56 @@ const getSubscriberNumber = async (license_number) => {
     }
   });
 };
+function disconnectUnit(innerId) {
+  const msgData = {
+    action: {
+      name: "fnx_disconnect_unit",
+      parameters: { inner_id: innerId, _action_name: "fnx_disconnect_unit" },
+      mtkn: 4,
+      session_token: utilities_session_token_GLOBAL,
+    },
+    session_token: utilities_session_token_GLOBAL,
+  };
+  utilitiesWS.send(JSON.stringify(msgData));
+}
+function realNewWorkOrder(subscriber, client_id, vehicle_id) {
+  const msgData = {
+    action: {
+      name: "fnx_new_workorder",
+      parameters: {
+        "Client ID": client_id,
+        "Vehicle ID": vehicle_id,
+        Subscriber: subscriber,
+        "Work Order Type": "1",
+        "Delivery Type": "2",
+        _action_name: "fnx_new_workorder",
+      },
+      mtkn: 6,
+      session_token: utilities_session_token_GLOBAL,
+    },
+    session_token: utilities_session_token_GLOBAL,
+  };
+  utilitiesWS.send(JSON.stringify(msgData));
+}
+function fakeNewWorkOrder(subscriber, client_id, vehicle_id) {
+  const msgData = {
+    action: {
+      name: "fnx_new_workorder",
+      parameters: {
+        "Client ID": client_id,
+        "Vehicle ID": vehicle_id,
+        Subscriber: subscriber,
+        "Work Order Type": "1",
+        "Delivery Type": "1",
+        _action_name: "fnx_new_workorder",
+      },
+      mtkn: 6,
+      session_token: utilities_session_token_GLOBAL,
+    },
+    session_token: utilities_session_token_GLOBAL,
+  };
+  utilitiesWS.send(JSON.stringify(msgData));
+}
 function connectUnit(subscriber, license, innerID) {
   const msgData = {
     action: {
@@ -136,14 +186,55 @@ const logInUtilities = {
   session_token: null,
 };
 
-const utilitiesBuffer = [];
+let utilitiesBuffer = [];
 //       MAIN
-async function conenctUnitUser(
+async function realNewWorkOrderUser(
+  subscriber,
+  client_id,
+  vehicle_id,
+  callbackFunc,
+  myWebsocket
+) {
+  console.log("new work order; client = ", client_id);
+  userOperation(
+    () => realNewWorkOrder(subscriber, client_id, vehicle_id),
+    callbackFunc,
+    myWebsocket,
+    2
+  );
+}
+async function fakeNewWorkOrderUser(
+  subscriber,
+  client_id,
+  vehicle_id,
+  callbackFunc,
+  myWebsocket
+) {
+  userOperation(
+    () => fakeNewWorkOrder(subscriber, client_id, vehicle_id),
+    callbackFunc,
+    myWebsocket,
+    2
+  );
+}
+async function connectUnitUser(
   subscriber,
   license,
   innerID,
   callbackFunc,
   myWebsocket
+) {
+  userOperation(
+    () => connectUnit(subscriber, license, innerID),
+    callbackFunc,
+    myWebsocket
+  );
+}
+async function userOperation(
+  actionFunc,
+  callbackFunc,
+  myWebsocket,
+  msgLength = 3
 ) {
   let islogged = false;
   let openNew = false;
@@ -167,21 +258,28 @@ async function conenctUnitUser(
     //need fix
     utilitiesWS = myWebsocket;
     islogged = true;
-    connectUnit(subscriber, license, innerID);
+    actionFunc();
   }
   utilitiesWS.on("message", function incoming(data) {
     const jsonData = utilitiesBuffer.push(data.toString());
     console.log("pushed message to buffer");
-    // first server message is recieved in 3 different messages one after the other
-    if (utilitiesBuffer.length % 3 == 0 && utilitiesBuffer.length > 0) {
-      const responseObj = JSON.parse(utilitiesBuffer.slice(-3).join(""));
+    // first server message is recieved in number of [msgLength] different messages one after the other
+    let currentMsgLength = !islogged ? 3 : msgLength;
+    if (
+      utilitiesBuffer.length % currentMsgLength == 0 &&
+      utilitiesBuffer.length > 0
+    ) {
+      const responseObj = JSON.parse(
+        utilitiesBuffer.slice(-1 * currentMsgLength).join("")
+      );
+      utilitiesBuffer = [];
       const sessionToken = responseObj.response.properties.session_token;
       const description = responseObj.response.properties.description;
       console.log(responseObj);
       utilities_session_token_GLOBAL = sessionToken;
       if (!islogged && openNew) {
-        connectUnit(subscriber, license, innerID);
         islogged = true;
+        actionFunc();
       } else {
         callbackFunc(description.toString());
       }
@@ -190,8 +288,11 @@ async function conenctUnitUser(
 }
 
 module.exports = {
-  conenctUnitUser,
+  connectUnitUser,
   logInFieldWork,
   logInUtilities,
   getWebSocket,
+  disconnectUnit,
+  realNewWorkOrderUser,
+  fakeNewWorkOrderUser,
 };
