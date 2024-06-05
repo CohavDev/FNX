@@ -92,7 +92,7 @@ app.post("/api/utilities/fakeNewWorkOrder", (req, res) => {
 app.post("/api/utilities/disconnectUnit", (req, res) => {
   const inner_id = req.body["inner_id"];
   async function run() {
-    const result = await utiliTools.disconnectUnit(inner_id);
+    const result = await utiliTools.disconnectUnitUser(inner_id);
     res.send(result);
   }
   run();

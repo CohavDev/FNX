@@ -9,7 +9,7 @@ let global_tfl_session = "";
 const buildLicenseDict = (rawDB) => {
   let regexLicense = /LICENSE_NUMBER=([^VEHICLE_ID]*)/g;
   let regexVehicleID = /VEHICLE_ID=([^VEHICLE_TYPE]*)/g;
-  let regexObdInnerId = /OBD_NUMBER=([^LAST_GPRS]*)/g;
+  let regexObdInnerId = /OBD_NUMBER=([^\s]*)/g;
   let regexLastGPRS = /LAST_GPRS=([^LAST]*)/g;
 
   let matchLicense = rawDB.matchAll(regexLicense);
@@ -222,14 +222,18 @@ async function retryGetClient(subscriber) {
   if (!isfetched) {
     return false;
   }
-  const fileRaw = fs.readFileSync("./policiesRawDB.json");
-  const fileJson = JSON.parse(fileRaw);
-  const search = fileJson[subscriber];
-  if (search === undefined) {
+  try {
+    const fileRaw = fs.readFileSync("./policiesRawDB.json");
+    const fileJson = JSON.parse(fileRaw);
+    const search = fileJson[subscriber];
+    if (search === undefined) {
+      return false;
+    }
+    //else
+    return true;
+  } catch (error) {
     return false;
   }
-  //else
-  return true;
 }
 async function getClientOrderDetailsAxios(license, vehicle_id) {
   console.log("Getting client's order details");

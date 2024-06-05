@@ -230,6 +230,9 @@ async function connectUnitUser(
     myWebsocket
   );
 }
+async function disconnectUnitUser(innerID, callbackFunc, myWebsocket) {
+  userOperation(() => disconnectUnit(innerID), callbackFunc, myWebsocket);
+}
 async function userOperation(
   actionFunc,
   callbackFunc,
@@ -269,9 +272,16 @@ async function userOperation(
       utilitiesBuffer.length % currentMsgLength == 0 &&
       utilitiesBuffer.length > 0
     ) {
-      const responseObj = JSON.parse(
-        utilitiesBuffer.slice(-1 * currentMsgLength).join("")
-      );
+      let responseObj;
+      try {
+        responseObj = JSON.parse(
+          utilitiesBuffer.slice(-1 * currentMsgLength).join("")
+        );
+      } catch (error) {
+        callbackFunc("Failed: unexpected server response error");
+        return;
+      }
+
       utilitiesBuffer = [];
       const sessionToken = responseObj.response.properties.session_token;
       const description = responseObj.response.properties.description;
@@ -292,7 +302,7 @@ module.exports = {
   logInFieldWork,
   logInUtilities,
   getWebSocket,
-  disconnectUnit,
+  disconnectUnitUser,
   realNewWorkOrderUser,
   fakeNewWorkOrderUser,
 };
