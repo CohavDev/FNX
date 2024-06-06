@@ -231,7 +231,7 @@ async function connectUnitUser(
   );
 }
 async function disconnectUnitUser(innerID, callbackFunc, myWebsocket) {
-  userOperation(() => disconnectUnit(innerID), callbackFunc, myWebsocket);
+  userOperation(() => disconnectUnit(innerID), callbackFunc, myWebsocket, 3);
 }
 async function userOperation(
   actionFunc,
@@ -278,6 +278,8 @@ async function userOperation(
           utilitiesBuffer.slice(-1 * currentMsgLength).join("")
         );
       } catch (error) {
+        console.log(utilitiesBuffer);
+        console.log(error);
         callbackFunc("Failed: unexpected server response error");
         return;
       }

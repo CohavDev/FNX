@@ -92,8 +92,12 @@ app.post("/api/utilities/fakeNewWorkOrder", (req, res) => {
 app.post("/api/utilities/disconnectUnit", (req, res) => {
   const inner_id = req.body["inner_id"];
   async function run() {
-    const result = await utiliTools.disconnectUnitUser(inner_id);
-    res.send(result);
+    const result = await utiliTools.disconnectUnitUser(
+      inner_id,
+      (msg) => logServerMsgDisconnect(msg, res),
+      undefined
+    );
+    // res.send(result);
   }
   run();
 });
@@ -137,5 +141,15 @@ function logServerMsgNewWorkOrder(msg, res) {
       "server message = [empty], which means successfull new work order"
     );
     res.send("נפתחה שליחות חדשה");
+  }
+}
+function logServerMsgDisconnect(msg, res) {
+  console.log(msg.length);
+  if (msg.length !== 0) {
+    console.log("server msg = ", msg);
+    res.send(msg);
+  } else {
+    console.log("server message = [empty] (disconnect unit)");
+    res.send("ניתוק יחידה נכשל");
   }
 }
