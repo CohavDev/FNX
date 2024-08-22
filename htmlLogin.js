@@ -2,7 +2,7 @@ const axios = require("axios");
 const fs = require("fs");
 
 const username = "shaulc";
-const password = "SC123ab!";
+const password = "XXXXXX";
 let session_id_GLOBAL = "";
 const URL = "https://html5.traffilog.com/AppEngine_2_1/default.aspx";
 function processCookies(cookies) {
